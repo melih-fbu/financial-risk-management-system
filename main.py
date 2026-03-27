@@ -1,14 +1,15 @@
 from fastapi import FastAPI
 from app.core.config import APP_NAME
+from app.api import metals
 
-# FastAPI uygulamasını başlat
 app = FastAPI(
-     title="Financial Risk Management System",
+    title=APP_NAME,
     description="Altın ve Gümüş Portföy Risk Analiz Sistemi",
     version="1.0.0"
 )
 
-# Ana sayfa - API çalışıyor mu diye kontrol
+app.include_router(metals.router, prefix="/metals", tags=["Metals"])
+
 @app.get("/")
 def root():
     return {
@@ -16,7 +17,6 @@ def root():
         "version": "1.0.0"
     }
 
-# Sağlık kontrolü - sistem ayakta mı?
 @app.get("/health")
 def health_check():
     return {"status": "OK"}
