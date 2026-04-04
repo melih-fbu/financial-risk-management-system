@@ -1,29 +1,43 @@
 import { useEffect, useState } from 'react'
 import SectionHeader from '../components/SectionHeader'
 import StatusCard from '../components/StatusCard'
-import { metalsApi } from '../services/api'
+import { metalsApi, reportsApi } from '../services/api'
 import { formatCurrency, getLatestPrices } from '../utils/formatters'
 
 function HomePage() {
   const [prices, setPrices] = useState([])
+  const [riskSummary, setRiskSummary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    async function fetchPrices() {
+    async function fetchDashboard() {
       try {
         setLoading(true)
-        const response = await metalsApi.getAllPrices()
-        setPrices(response.data)
+        const [pricesResponse, customersResponse] = await Promise.all([
+          metalsApi.getAllPrices(),
+          reportsApi.getCustomerSummary(),
+        ])
+
+        setPrices(pricesResponse.data)
+
+        const firstCustomer = customersResponse.data.find((item) => item.customer_id)
+        if (firstCustomer) {
+          const riskResponse = await reportsApi.getRiskSummary(firstCustomer.customer_id)
+          setRiskSummary(riskResponse.data)
+        } else {
+          setRiskSummary(null)
+        }
+
         setError('')
       } catch {
-        setError('Fiyat verileri alınamadı. FastAPI servisinin çalıştığını kontrol edin.')
+        setError('Dashboard verileri alınamadı. FastAPI servisinin çalıştığını kontrol edin.')
       } finally {
         setLoading(false)
       }
     }
 
-    fetchPrices()
+    fetchDashboard()
   }, [])
 
   const latestPrices = getLatestPrices(prices)
@@ -55,9 +69,33 @@ function HomePage() {
           Güncel fiyat kartları yükleniyor...
         </div>
       ) : (
-        <section className="grid gap-6 md:grid-cols-2">
+        <section className="grid gap-6 xl:grid-cols-3">
           <StatusCard metalType="XAU" item={latestPrices.XAU} />
           <StatusCard metalType="XAG" item={latestPrices.XAG} />
+          <article className="rounded-3xl border border-white/70 bg-white/85 p-6 shadow-soft">
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">Risk Özeti</p>
+            {riskSummary ? (
+              <div className="mt-6 space-y-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.25em] text-slate-400">{riskSummary.customer_name}</p>
+                  <p className="mt-2 text-3xl font-bold text-slate-950">{formatCurrency(riskSummary.var_95)}</p>
+                  <p className="mt-1 text-sm text-slate-500">Toplam %95 VaR</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
+                  <p>Toplam yatırım: {formatCurrency(riskSummary.total_investment)}</p>
+                  <p>Kar / zarar: {formatCurrency(riskSummary.profit_loss)}</p>
+                  <p>BUY işlem sayısı: {riskSummary.buy_transaction_count}</p>
+                </div>
+                <p className="text-xs leading-6 text-slate-500">
+                  Ana sayfada ilk bulunan müşterinin risk özeti gösteriliyor.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6 rounded-2xl border border-dashed border-slate-300 p-4 text-sm leading-6 text-slate-600">
+                Risk kartını doldurmak için en az bir müşteri ve BUY işlemi eklenmeli.
+              </div>
+            )}
+          </article>
         </section>
       )}
     </div>

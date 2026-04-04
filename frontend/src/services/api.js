@@ -14,4 +14,10 @@ export const metalsApi = {
   getVarByMetal: (metalType) => api.get(`/metals/var/${metalType}`),
 }
 
+export const reportsApi = {
+  getCustomerSummary: () => api.get('/reports/customer-summary'),
+  compareMetals: (payload) => api.post('/reports/compare-metals', payload),
+  getRiskSummary: (customerId) => api.get(`/reports/risk-summary/${customerId}`),
+}
+
 export default api

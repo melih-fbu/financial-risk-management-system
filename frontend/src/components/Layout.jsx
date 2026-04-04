@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 const navItems = [
   { to: '/', label: 'Ana Sayfa' },
   { to: '/simulation', label: 'Simülasyon' },
+  { to: '/compare', label: 'Karşılaştırma' },
   { to: '/history', label: 'Fiyat Geçmişi' },
 ]
 
