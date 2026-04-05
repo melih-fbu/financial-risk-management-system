@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import customers, metals, reports, transactions
 from app.core.config import APP_NAME
 from app.core.database import Base, engine
+from app.models.audit import AuditLog
 from app.models.customer import Customer
 from app.models.metals import MetalPrice, Portfolio, SimulationResult
 from app.models.transaction import Transaction

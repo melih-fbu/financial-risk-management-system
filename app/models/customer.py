@@ -9,6 +9,6 @@ class Customer(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    email = Column(String, nullable=False, unique=True, index=True)
-    phone = Column(String, nullable=True)
+    email = Column(String, nullable=False)  # Veritabanında şifreli saklanır
+    phone = Column(String, nullable=True)   # Veritabanında şifreli saklanır
     created_at = Column(DateTime, default=func.now())

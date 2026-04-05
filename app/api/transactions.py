@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core.audit import log_action
 from app.core.database import get_db
 from app.models.customer import Customer
 from app.models.transaction import Transaction
@@ -21,7 +22,15 @@ class TransactionCreate(BaseModel):
 
 @router.get("")
 def get_transactions(db: Session = Depends(get_db)):
-    return db.query(Transaction).order_by(Transaction.date.desc(), Transaction.id.desc()).all()
+    transactions = db.query(Transaction).order_by(Transaction.date.desc(), Transaction.id.desc()).all()
+    log_action(
+        db,
+        action="READ",
+        entity_type="transaction",
+        entity_id=None,
+        details={"count": len(transactions), "operation": "list_transactions"},
+    )
+    return transactions
 
 
 @router.post("")
@@ -44,6 +53,17 @@ def create_transaction(transaction: TransactionCreate, db: Session = Depends(get
     db.add(new_transaction)
     db.commit()
     db.refresh(new_transaction)
+    log_action(
+        db,
+        action="CREATE",
+        entity_type="transaction",
+        entity_id=new_transaction.id,
+        details={
+            "customer_id": new_transaction.customer_id,
+            "metal_type": new_transaction.metal_type,
+            "transaction_type": new_transaction.transaction_type,
+        },
+    )
     return {"message": "İşlem eklendi", "data": new_transaction}
 
 
@@ -53,9 +73,17 @@ def get_transactions_by_customer(customer_id: int, db: Session = Depends(get_db)
     if not customer:
         raise HTTPException(status_code=404, detail="Müşteri bulunamadı")
 
-    return (
+    transactions = (
         db.query(Transaction)
         .filter(Transaction.customer_id == customer_id)
         .order_by(Transaction.date.desc(), Transaction.id.desc())
         .all()
     )
+    log_action(
+        db,
+        action="READ",
+        entity_type="transaction",
+        entity_id=customer_id,
+        details={"count": len(transactions), "operation": "list_transactions_by_customer"},
+    )
+    return transactions
