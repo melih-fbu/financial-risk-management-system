@@ -19,4 +19,4 @@ services:
 databases:
   - name: financial-risk-db
     databaseName: financial_risk_db
-    user: postgres
+    user: financial_user
