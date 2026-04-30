@@ -4,6 +4,8 @@ const navItems = [
   { to: '/', label: 'Ana Sayfa' },
   { to: '/simulation', label: 'Simülasyon' },
   { to: '/compare', label: 'Karşılaştırma' },
+  { to: '/analysis', label: 'Analiz' },
+  { to: '/prediction', label: 'Tahmin' },
   { to: '/history', label: 'Fiyat Geçmişi' },
 ]
 

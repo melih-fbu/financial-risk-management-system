@@ -1,11 +1,12 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.ml.forecast import MetalForecaster
 from app.models.customer import Customer
 from app.models.transaction import Transaction
 from app.risk.calculator import RiskCalculator
@@ -17,6 +18,12 @@ class CompareMetalsRequest(BaseModel):
     initial_amount: float
     start_date: date
     end_date: date
+
+
+class MonteCarloRequest(BaseModel):
+    metal_type: str
+    days: int = 30
+    simulations: int = 1000
 
 
 @router.get("/customer-summary")
@@ -117,3 +124,75 @@ def get_risk_summary(customer_id: int, db: Session = Depends(get_db)):
     summary["customer_name"] = customer.name
     summary["email"] = customer.email
     return summary
+
+
+@router.get("/metal-analysis/{metal_type}")
+def get_metal_analysis(metal_type: str, db: Session = Depends(get_db)):
+    price_series = RiskCalculator._get_price_series(db, metal_type)
+    if len(price_series) < 2:
+        raise HTTPException(status_code=400, detail="Analiz için yetersiz fiyat verisi var.")
+
+    return {
+        "metal_type": metal_type,
+        "historical_var_95": RiskCalculator.calculate_historical_var(price_series, 0.95),
+        "sharpe_ratio": RiskCalculator.calculate_sharpe_ratio(price_series),
+        "max_drawdown": RiskCalculator.calculate_max_drawdown(price_series),
+        "volatility": RiskCalculator.calculate_volatility(price_series),
+        "data_points": int(len(price_series)),
+    }
+
+
+@router.post("/monte-carlo")
+def run_monte_carlo(request: MonteCarloRequest, db: Session = Depends(get_db)):
+    if request.days <= 0:
+        raise HTTPException(status_code=400, detail="days değeri 0'dan büyük olmalıdır.")
+    if request.simulations <= 0:
+        raise HTTPException(status_code=400, detail="simulations değeri 0'dan büyük olmalıdır.")
+
+    price_series = RiskCalculator._get_price_series(db, request.metal_type)
+    if len(price_series) < 2:
+        raise HTTPException(status_code=400, detail="Monte Carlo için yetersiz fiyat verisi var.")
+
+    simulation_result = RiskCalculator.monte_carlo_simulation(
+        price_series,
+        days=request.days,
+        simulations=request.simulations,
+    )
+
+    return {
+        "metal_type": request.metal_type,
+        "days": request.days,
+        "simulations": request.simulations,
+        **simulation_result,
+    }
+
+
+@router.get("/predict/{metal_type}")
+def predict_metal_price(
+    metal_type: str,
+    days_ahead: int = Query(default=7, ge=1, le=60),
+    db: Session = Depends(get_db),
+):
+    price_series = RiskCalculator._get_price_series(db, metal_type)
+    if len(price_series) < 6:
+        raise HTTPException(status_code=400, detail="Tahmin için en az 6 fiyat verisi gereklidir.")
+
+    prediction = MetalForecaster.predict_future_prices(price_series, days_ahead=days_ahead)
+    return {
+        "metal_type": metal_type,
+        **prediction,
+    }
+
+
+@router.get("/signal/{metal_type}")
+def get_signal_report(metal_type: str, db: Session = Depends(get_db)):
+    price_series = RiskCalculator._get_price_series(db, metal_type)
+    if len(price_series) < 20:
+        raise HTTPException(status_code=400, detail="Sinyal üretmek için en az 20 fiyat verisi gereklidir.")
+
+    return {
+        "metal_type": metal_type,
+        **MetalForecaster.calculate_risk_score(price_series),
+        **MetalForecaster.classify_volatility(price_series),
+        **MetalForecaster.generate_signal(price_series),
+    }

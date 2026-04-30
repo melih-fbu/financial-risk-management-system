@@ -31,6 +31,79 @@ class RiskCalculator:
         return abs(float(var_value))
 
     @staticmethod
+    def calculate_sharpe_ratio(prices: pd.Series, risk_free_rate: float = 0.02) -> float:
+        returns = RiskCalculator.calculate_daily_returns(prices)
+        if len(returns) < 2:
+            return 0.0
+
+        mean_return_annual = returns.mean() * 252
+        std_return_annual = returns.std() * np.sqrt(252)
+        if std_return_annual == 0 or np.isnan(std_return_annual):
+            return 0.0
+
+        sharpe_ratio = (mean_return_annual - risk_free_rate) / std_return_annual
+        return float(sharpe_ratio)
+
+    @staticmethod
+    def calculate_max_drawdown(prices: pd.Series) -> float:
+        clean_prices = prices.dropna()
+        if len(clean_prices) < 2:
+            return 0.0
+
+        cumulative_max = clean_prices.cummax()
+        drawdowns = (clean_prices - cumulative_max) / cumulative_max
+        return float(drawdowns.min() * 100)
+
+    @staticmethod
+    def calculate_volatility(prices: pd.Series) -> float:
+        returns = RiskCalculator.calculate_daily_returns(prices)
+        if len(returns) < 2:
+            return 0.0
+
+        volatility = returns.std() * np.sqrt(252)
+        return float(volatility * 100)
+
+    @staticmethod
+    def monte_carlo_simulation(prices: pd.Series, days: int = 30, simulations: int = 1000):
+        clean_prices = prices.dropna()
+        returns = RiskCalculator.calculate_daily_returns(clean_prices)
+
+        if len(clean_prices) < 2 or len(returns) < 2:
+            latest_price = float(clean_prices.iloc[-1]) if len(clean_prices) > 0 else 0.0
+            fallback_path = [[latest_price] * (days + 1)]
+            return {
+                "mean_price": latest_price,
+                "worst_case": latest_price,
+                "best_case": latest_price,
+                "all_simulations": fallback_path,
+            }
+
+        last_price = float(clean_prices.iloc[-1])
+        mean_return = float(returns.mean())
+        std_return = float(returns.std())
+
+        all_paths = []
+        final_prices = []
+
+        for _ in range(simulations):
+            random_returns = np.random.normal(mean_return, std_return, days)
+            price_path = [last_price]
+
+            for simulated_return in random_returns:
+                next_price = price_path[-1] * (1 + simulated_return)
+                price_path.append(float(next_price))
+
+            all_paths.append(price_path)
+            final_prices.append(price_path[-1])
+
+        return {
+            "mean_price": float(np.mean(final_prices)),
+            "worst_case": float(np.percentile(final_prices, 5)),
+            "best_case": float(np.percentile(final_prices, 95)),
+            "all_simulations": all_paths,
+        }
+
+    @staticmethod
     def _find_price_entry(db: Session, metal_type: str, target_date: date):
         return (
             db.query(MetalPrice)
