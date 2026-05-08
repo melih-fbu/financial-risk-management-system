@@ -1,18 +1,22 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
 from app.core.config import DATABASE_URL
 
-# PostgreSQL'e bağlantı motoru oluştur
-engine = create_engine(DATABASE_URL)
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL tanımlı değil.")
 
-# Her istek için bir oturum (session) açar
+# PostgreSQL bağlantı motoru
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+
+# Her istek için bir session açar
 SessionLocal = sessionmaker(bind=engine)
 
-# Tüm tablolarımız bu sınıftan türeyecek
+
 class Base(DeclarativeBase):
     pass
 
-# API'de kullanmak için veritabanı oturumu açan fonksiyon
+
 def get_db():
     db = SessionLocal()
     try:

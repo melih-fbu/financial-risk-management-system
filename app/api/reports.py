@@ -8,8 +8,10 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.ml.forecast import MetalForecaster
 from app.models.customer import Customer
+from app.models.metals import MetalPrice
 from app.models.transaction import Transaction
 from app.risk.calculator import RiskCalculator
+import pandas as pd
 
 router = APIRouter()
 
@@ -128,7 +130,19 @@ def get_risk_summary(customer_id: int, db: Session = Depends(get_db)):
 
 @router.get("/metal-analysis/{metal_type}")
 def get_metal_analysis(metal_type: str, db: Session = Depends(get_db)):
-    price_series = RiskCalculator._get_price_series(db, metal_type)
+    all_prices = (
+        db.query(MetalPrice)
+        .filter(MetalPrice.metal_type == metal_type)
+        .order_by(MetalPrice.date.asc())
+        .all()
+    )
+    price_series = pd.Series(
+        [
+            p.price_try if p.price_try else p.price_usd
+            for p in all_prices
+            if (p.price_try if p.price_try else p.price_usd) is not None
+        ]
+    )
     if len(price_series) < 2:
         raise HTTPException(status_code=400, detail="Analiz için yetersiz fiyat verisi var.")
 
@@ -173,7 +187,19 @@ def predict_metal_price(
     days_ahead: int = Query(default=7, ge=1, le=60),
     db: Session = Depends(get_db),
 ):
-    price_series = RiskCalculator._get_price_series(db, metal_type)
+    all_prices = (
+        db.query(MetalPrice)
+        .filter(MetalPrice.metal_type == metal_type)
+        .order_by(MetalPrice.date.asc())
+        .all()
+    )
+    price_series = pd.Series(
+        [
+            p.price_try if p.price_try else p.price_usd
+            for p in all_prices
+            if (p.price_try if p.price_try else p.price_usd) is not None
+        ]
+    )
     if len(price_series) < 6:
         raise HTTPException(status_code=400, detail="Tahmin için en az 6 fiyat verisi gereklidir.")
 

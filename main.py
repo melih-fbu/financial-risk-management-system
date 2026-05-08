@@ -9,12 +9,10 @@ from app.models.customer import Customer
 from app.models.metals import MetalPrice, Portfolio, SimulationResult
 from app.models.transaction import Transaction
 
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI(
     title=APP_NAME,
     description="Altın ve Gümüş Portföy Risk Analiz Sistemi",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 app.add_middleware(
@@ -30,12 +28,19 @@ app.include_router(customers.router, prefix="/customers", tags=["Customers"])
 app.include_router(transactions.router, prefix="/transactions", tags=["Transactions"])
 app.include_router(reports.router, prefix="/reports", tags=["Reports"])
 
+
+@app.on_event("startup")
+def create_tables():
+    Base.metadata.create_all(bind=engine)
+
+
 @app.get("/")
 def root():
     return {
         "message": "Financial Risk Management API çalışıyor!",
-        "version": "1.0.0"
+        "version": "1.0.0",
     }
+
 
 @app.get("/health")
 def health_check():

@@ -10,6 +10,13 @@ from app.models.transaction import Transaction
 
 class RiskCalculator:
     @staticmethod
+    def _extract_price_value(price_entry: MetalPrice):
+        if not price_entry:
+            return None
+
+        return price_entry.price_try if price_entry.price_try else price_entry.price_usd
+
+    @staticmethod
     def calculate_daily_returns(prices: pd.Series) -> pd.Series:
         """
         Günlük getirileri hesaplar: (Bugünkü Fiyat / Dünkü Fiyat) - 1
@@ -123,7 +130,13 @@ class RiskCalculator:
             .order_by(MetalPrice.date.asc())
             .all()
         )
-        return pd.Series([price.price_try for price in all_prices if price.price_try is not None])
+        return pd.Series(
+            [
+                RiskCalculator._extract_price_value(price)
+                for price in all_prices
+                if RiskCalculator._extract_price_value(price) is not None
+            ]
+        )
 
     @staticmethod
     def _calculate_metal_position(
@@ -144,8 +157,11 @@ class RiskCalculator:
         price_series = RiskCalculator._get_price_series(db, metal_type)
         var_ratio_95 = RiskCalculator.calculate_historical_var(price_series, 0.95) if len(price_series) >= 2 else 0.0
 
-        units_bought = initial_amount / start_price_entry.price_try
-        final_amount = units_bought * end_price_entry.price_try
+        start_price = RiskCalculator._extract_price_value(start_price_entry)
+        end_price = RiskCalculator._extract_price_value(end_price_entry)
+
+        units_bought = initial_amount / start_price
+        final_amount = units_bought * end_price
         profit_loss = final_amount - initial_amount
 
         return {
@@ -153,8 +169,8 @@ class RiskCalculator:
             "initial_amount": float(initial_amount),
             "start_date": start_price_entry.date.isoformat(),
             "end_date": end_price_entry.date.isoformat(),
-            "start_price_try": float(start_price_entry.price_try),
-            "end_price_try": float(end_price_entry.price_try),
+            "start_price_try": float(start_price),
+            "end_price_try": float(end_price),
             "final_amount": float(final_amount),
             "profit_loss": float(profit_loss),
             "var_ratio_95": float(var_ratio_95),
@@ -185,8 +201,11 @@ class RiskCalculator:
         else:
             var_95 = RiskCalculator.calculate_historical_var(price_series, 0.95)
 
-        units_bought = initial_amount / start_price_entry.price_try
-        final_amount = units_bought * latest_price_entry.price_try
+        start_price = RiskCalculator._extract_price_value(start_price_entry)
+        latest_price = RiskCalculator._extract_price_value(latest_price_entry)
+
+        units_bought = initial_amount / start_price
+        final_amount = units_bought * latest_price
         profit_loss = final_amount - initial_amount
 
         new_simulation = SimulationResult(
