@@ -38,13 +38,17 @@ function HistoryPage() {
 
       {loading ? (
         <div className="rounded-3xl border border-slate-200 bg-white/80 p-8 text-slate-600 shadow-soft">
-          Grafik verileri yükleniyor...
+          Veri yükleniyor...
+        </div>
+      ) : chartData.length === 0 ? (
+        <div className="rounded-3xl border border-slate-200 bg-white/80 p-8 text-slate-600 shadow-soft">
+          Veri yükleniyor...
         </div>
       ) : (
         <ChartCard
           data={chartData}
           title="Metal Fiyatlarının Tarihsel Seyri"
-          description="X ekseni tarih, Y ekseni TL bazlı fiyatı gösterir. Altın ve gümüş verileri aynı grafikte karşılaştırılır."
+          description="X ekseni tarih, Y ekseni fiyatı gösterir. Altın ve gümüş verileri aynı grafikte karşılaştırılır."
         />
       )}
     </div>

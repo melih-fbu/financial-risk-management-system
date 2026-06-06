@@ -42,7 +42,7 @@ export function getLatestPrices(prices) {
 export function buildHistoryChartData(prices) {
   const rows = prices.reduce((accumulator, item) => {
     const existing = accumulator.get(item.date) ?? { date: item.date, XAU: null, XAG: null }
-    existing[item.metal_type] = item.price_try
+    existing[item.metal_type] = item.price_try ?? item.price_usd
     accumulator.set(item.date, existing)
     return accumulator
   }, new Map())
